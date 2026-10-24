@@ -1,0 +1,14 @@
+node_modules/
+dist/
+artifacts/
+coverage/
+.env
+.env.*
+!.env.example
+runtime-config*.json
+AUTO-STATE.json
+UI-UPDATE.json
+*.log
+*.pem
+*.key
+.vscode/

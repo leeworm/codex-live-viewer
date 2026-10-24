@@ -1,0 +1,16 @@
+import { mountNativeView } from '../native/view.js';
+import type { NativeSnapshot } from '../native/feed.js';
+const storageKey='live-viewer:'+location.pathname;
+const token = location.hash.slice(1) || sessionStorage.getItem(storageKey) || '';
+if(token)sessionStorage.setItem(storageKey,token);
+history.replaceState(null, '', location.pathname);
+let snapshot: NativeSnapshot = {hostId:'local',threadId:'',turnId:null,calls:[],plan:[],revision:0};
+const listeners = new Set<(value: NativeSnapshot) => void>();
+const status = document.querySelector<HTMLElement>('#connection')!;
+const feed = { get snapshot() { return snapshot; }, subscribe(fn: (value: NativeSnapshot) => void) { listeners.add(fn); fn(snapshot); return () => { listeners.delete(fn); }; } };
+const dispose = mountNativeView(document.querySelector<HTMLElement>('#viewer')!, feed);
+const events = new EventSource(location.pathname + '/events?key=' + encodeURIComponent(token));
+events.onopen = () => { status.hidden = true; };
+events.onmessage = event => { try { const value = JSON.parse(event.data) as NativeSnapshot; if (!value.threadId || (snapshot.threadId && value.threadId !== snapshot.threadId)) return; snapshot = value; for (const listener of listeners) listener(snapshot); } catch { status.textContent = '스트림을 읽을 수 없습니다.'; status.hidden = false; } };
+events.onerror = () => { status.textContent = '연결이 끊겼습니다. 다시 연결하는 중'; status.hidden = false; };
+window.addEventListener('pagehide', () => { events.close(); dispose(); });

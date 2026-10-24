@@ -1,0 +1,12 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {writeDependencyNotices} from './notices.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+if(process.platform!=='win32')throw Error('Windows is required to compile the launcher.');
+const at=process.argv.indexOf('--output'),pkg=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));
+const output=at>=0?path.resolve(process.argv[at+1]):path.join(root,'dist','codex-live-viewer-'+pkg.version);
+await fs.mkdir(path.dirname(output),{recursive:true});
+await writeDependencyNotices(root);
+execFileSync(process.execPath,[path.join(root,'codex-panel','automatic','build.mjs'),'--output',output],{cwd:root,stdio:'inherit',windowsHide:true});
