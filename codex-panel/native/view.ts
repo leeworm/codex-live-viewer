@@ -51,12 +51,16 @@ type Card={element:HTMLElement;heading:HTMLElement;title:HTMLElement;label:HTMLE
 export function mountNativeView(element:HTMLElement,feed:Pick<NativeCodeFeed,'snapshot'|'subscribe'>):()=>void {
   const shadow=element.shadowRoot??element.attachShadow({mode:'open'});shadow.replaceChildren();
   const style=node('style');style.textContent=nativeViewCss;
-  const viewer=node('section','viewer');viewer.setAttribute('aria-label','Live code');
-  const bar=node('header','bar'),dot=node('span','connection-dot'),heading=node('span','heading','Live code'),phase=node('span','phase');
+  const viewer=node('section','viewer');viewer.setAttribute('aria-label','Live Viewer');
+  const bar=node('header','bar'),dot=node('span','connection-dot'),heading=node('span','heading','Live Viewer'),phase=node('span','phase');
   bar.append(dot,heading,phase);
-  const jump=node('button','return-latest');jump.type='button';jump.setAttribute('aria-label','맨 아래로');jump.hidden=true;
-  const dots=node('span','jump-dots','…'),arrow=node('span','jump-arrow','↓'),tip=node('span','jump-label','맨 아래로');
-  dots.setAttribute('aria-hidden','true');arrow.setAttribute('aria-hidden','true');tip.setAttribute('aria-hidden','true');jump.append(dots,arrow,tip);
+  const jump=node('button','return-latest');jump.type='button';jump.setAttribute('aria-label','맨 아래로');jump.dataset.visible='false';jump.setAttribute('aria-hidden','true');jump.tabIndex=-1;
+  const dots=node('span','jump-dots');dots.setAttribute('aria-hidden','true');
+  for(let i=0;i<3;i++)dots.append(node('span','jump-dot'));
+  const svgNamespace='http://www.w3.org/2000/svg',arrow=document.createElementNS(svgNamespace,'svg'),arrowPath=document.createElementNS(svgNamespace,'path');
+  arrow.classList.add('jump-arrow');arrow.setAttribute('viewBox','0 0 20 20');arrow.setAttribute('width','20');arrow.setAttribute('height','20');arrow.setAttribute('aria-hidden','true');arrow.setAttribute('focusable','false');
+  arrowPath.setAttribute('d','M10 3.333V16.491M4.167 10.833 10 16.491 15.833 10.833');arrowPath.setAttribute('fill','none');arrowPath.setAttribute('stroke','currentColor');arrowPath.setAttribute('stroke-width','1.333');arrowPath.setAttribute('stroke-linecap','round');arrowPath.setAttribute('stroke-linejoin','round');arrow.append(arrowPath);
+  jump.append(dots,arrow);
   const timeline=node('main','timeline');timeline.setAttribute('aria-label','작업 흐름');timeline.setAttribute('role','log');timeline.setAttribute('aria-live','off');
   const empty=node('p','empty','코드 작업을 기다리는 중'),history=node('div','history');
   const planWrap=node('section','plan-wrap'),planTitle=node('div','plan-title','TODO'),planCount=node('span','plan-count'),plan=node('ol','plan');
@@ -66,7 +70,7 @@ export function mountNativeView(element:HTMLElement,feed:Pick<NativeCodeFeed,'sn
   let snapshot=feed.snapshot,following=true,disposed=false,scheduled=false,lastTurn:string|null=null,hydrating=true,frame:ReturnType<typeof setTimeout>|undefined;
   const cards=new Map<string,Card>(),expanded=new Set<string>();let cardSequence=0;
   const key=(call:NativeCall)=>call.turnId+':'+call.id;
-  function updateFollow(){jump.hidden=following||snapshot.calls.length===0;}
+  function updateFollow(){const visible=!following&&snapshot.calls.length>0&&timeline.scrollHeight-timeline.scrollTop-timeline.clientHeight>=28;jump.dataset.visible=String(visible);jump.setAttribute('aria-hidden',String(!visible));jump.tabIndex=visible?0:-1;}
   function makeCard(id:string):Card {
     const article=node('article','call');article.dataset.callKey=id;
     const head=node('header','call-head'),mark=node('span','state-mark'),label=node('strong','call-label'),title=node('span','call-title'),count=node('span','call-count');
@@ -111,7 +115,7 @@ export function mountNativeView(element:HTMLElement,feed:Pick<NativeCodeFeed,'sn
     card.element.dataset.revealing=String(revealing);
     card.element.dataset.expanded=String(full);card.heading.tabIndex=shown.kind==='line'?0:-1;card.heading.setAttribute('role',shown.kind==='line'?'button':'group');card.heading.setAttribute('aria-expanded',String(full));
     card.label.textContent=shown.label+(shown.kind==='shell'||shown.kind==='line'?'':':');card.title.textContent=shown.title;card.title.title=shown.title;
-    card.count.textContent=shown.kind==='edit'?'[+'+shown.added+' -'+shown.removed+']':shown.kind==='write'?shown.total+'줄':'';
+    card.count.textContent=shown.kind==='edit'?'[+'+shown.added+' -'+shown.removed+']':shown.kind==='write'?(call.changeKind==='add'?'새 파일 · ':'')+shown.total+'줄':'';
     card.phase.textContent=labels[call.status]+(card.typing.pending?' · 표시 중':'')+(call.durationMs!==undefined?' · '+(call.durationMs/1000).toFixed(1)+'s':'')+(call.exitCode!==undefined?' · exit '+call.exitCode:'');
     card.expand.hidden=!shown.expandable&&!full;card.expand.textContent=full?'접기':'펼치기';card.expand.setAttribute('aria-expanded',String(full));
     card.earlier.hidden=shown.earlier===0;card.earlier.textContent='… 앞 '+shown.earlier+'줄';
@@ -138,7 +142,7 @@ export function mountNativeView(element:HTMLElement,feed:Pick<NativeCodeFeed,'sn
     planWrap.hidden=snapshot.plan.length===0;planCount.textContent=' · '+snapshot.plan.filter(step=>step.status==='completed').length+'/'+snapshot.plan.length;
     plan.replaceChildren(...snapshot.plan.map(step=>{const li=node('li');li.dataset.status=step.status;li.append(node('span','todo-mark'),document.createTextNode(step.step));return li;}));
     element.dataset.owner=snapshot.hostId+':'+snapshot.threadId;element.dataset.callCount=String(snapshot.calls.length);element.dataset.revision=String(snapshot.revision);
-    element.dataset.renderer='app-theme-1';
+    element.dataset.renderer='codex-return-1';
     updateFollow();if(following)timeline.scrollTop=timeline.scrollHeight;
     if(snapshot.threadId)hydrating=false;
     if(frame!==undefined){clearTimeout(frame);frame=undefined;}

@@ -2,7 +2,7 @@ import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {ListToolsRequestSchema,CallToolRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 const schema={type:'object',properties:{phase:{enum:['before','after']},session_id:{type:'string'},turn_id:{type:'string'},tool_use_id:{type:'string'}},required:['phase','session_id','turn_id','tool_use_id'],additionalProperties:false};
-const server=new Server({name:'codex-live-viewer-hooks',version:'0.5.3'},{capabilities:{tools:{}}});
+const server=new Server({name:'codex-live-viewer-hooks',version:'0.5.4'},{capabilities:{tools:{}}});
 server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:[{name:'observe',description:'Connect a reviewed lifecycle hook to its existing local viewer. Returns no model context.',inputSchema:schema}]}));
 server.setRequestHandler(CallToolRequestSchema,async request=>{
  const input=request.params.arguments??{},meta=request.params._meta??{};

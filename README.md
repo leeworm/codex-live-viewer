@@ -12,7 +12,7 @@ The viewer follows the current local Codex execution and opens in its owning cha
 - Syntax colors, diff additions/deletions and available source line numbers.
 - A typing effect over received code, with a caret and bounded catch-up.
 - Clickable more-lines previews, copy and a TODO tree.
-- A bottom-center return button appears when you scroll into history; hover to see “맨 아래로”.
+- A native-style 32 px circular return button with animated dots; hover reveals a down arrow without a tooltip.
 - Typing is enabled by default, with an uncluttered header.
 - Cascadia Code / D2Coding fallbacks; narrow layouts and colors following the Codex app's appearance settings.
 - Automatic connection from the ordinary Codex icon after one-time setup.
@@ -38,9 +38,9 @@ npm run verify
 npm run build
 ```
 
-1. Open `dist/codex-live-viewer-0.5.3` and run `Enable-Auto.cmd`.
+1. Open `dist/codex-live-viewer-0.5.4` and run `Enable-Auto.cmd`.
 2. Close Codex normally when your work is saved, then start it using your usual icon.
-3. Ask Codex to write or edit a file. Live code opens automatically in the owning chat.
+3. Ask Codex to write or edit a file. Live Viewer opens automatically in the owning chat.
 
 Enable-Auto copies the verified bundle into the current user's AppData and registers `CODEX_CLI_PATH`. It preserves the previous value and rejects unrelated overrides. It never stops the running app. To restore the prior setting, run `Disable-Auto.cmd` from the installed bundle.
 

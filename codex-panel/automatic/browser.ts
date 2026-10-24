@@ -1,6 +1,7 @@
 import {followAppTheme} from '../native/theme.js';
 import { mountNativeView } from '../native/view.js';
 import type { NativeSnapshot } from '../native/feed.js';
+document.title='Live Viewer';
 const storageKey='live-viewer:'+location.pathname;
 const token = location.hash.slice(1) || sessionStorage.getItem(storageKey) || '';
 if(token)sessionStorage.setItem(storageKey,token);
