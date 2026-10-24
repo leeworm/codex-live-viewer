@@ -2,12 +2,13 @@ import http from 'node:http';
 import {randomBytes, timingSafeEqual} from 'node:crypto';
 import {NativeCodeFeed} from '../native/feed.js';
 import type {NativeSnapshot} from '../native/feed.js';
+import type {AppThemeSettings} from '../../src/shared/app-theme.js';
 const id = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(value);
 const same = (a: string, b: string) => {const left=Buffer.from(a),right=Buffer.from(b);return left.length===right.length && timingSafeEqual(left,right);};
-const html = '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live code</title><style>html,body{margin:0;height:100%;color-scheme:light dark;background:light-dark(#fff,#171717);font:12px system-ui}#viewer{height:100%;display:flex}#connection{position:fixed;bottom:4px;right:8px;z-index:2;background:light-dark(#fff,#171717);color:#888}</style><div id="viewer"></div><div id="connection">연결 중</div><script src="/viewer.js"></script></html>';
+export const viewerDocument = '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live code</title><style>html,body{margin:0;height:100%;color-scheme:light dark;background:var(--viewer-background,light-dark(#fff,#171717));font:12px system-ui}#viewer{height:100%;display:flex}#connection{position:fixed;bottom:4px;right:8px;z-index:2;background:var(--viewer-background,light-dark(#fff,#171717));color:#888}</style><div id="viewer"></div><div id="connection">연결 중</div><script src="/viewer.js"></script></html>';
 type Entry = {key:string;path:string;feed:NativeCodeFeed;clients:Set<http.ServerResponse>;touched:number};
 /** Read-only loopback viewer. Every thread has its own non-enumerable capability. */
-export async function startViewerService(options: {javascript:string|(()=>Promise<string>); open:(owner:{threadId:string;url:string;turnId:string|null})=>Promise<boolean>; maxThreads?:number}) {
+export async function startViewerService(options: {javascript:string|(()=>Promise<string>); open:(owner:{threadId:string;url:string;turnId:string|null})=>Promise<boolean>; maxThreads?:number;theme?:()=>Promise<AppThemeSettings>}) {
   const entries = new Map<string,Entry>(), paths = new Map<string,Entry>();
   const hookPath='/hook/'+randomBytes(32).toString('hex');
   const hooks:{threadId:string;turnId:string;callId:string;phase:string}[]=[];
@@ -30,6 +31,7 @@ export async function startViewerService(options: {javascript:string|(()=>Promis
       }catch{res.writeHead(400);res.end();return;}
     }
     if(req.method!=='GET'){res.writeHead(405);res.end();return;}
+    if(url.pathname==='/theme'){res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(await options.theme?.()??{mode:'system'}));return;}
     if(url.pathname==='/viewer.js'){
       try{const javascript=typeof options.javascript==='function'?await options.javascript():options.javascript;res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(javascript);}
       catch{res.writeHead(503);res.end('Viewer asset unavailable');}return;
@@ -47,7 +49,7 @@ export async function startViewerService(options: {javascript:string|(()=>Promis
     }
     res.setHeader('Content-Type','text/html; charset=utf-8');
     res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'self'");
-    res.end(html);
+    res.end(viewerDocument);
   });
   server.on('connection',socket=>{connections.add(socket);socket.on('close',()=>connections.delete(socket));});
   await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',()=>{server.removeListener('error',reject);resolve();});});

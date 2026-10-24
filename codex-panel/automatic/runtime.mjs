@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {startStdioProxy} from './stdio-proxy.mjs';
 import {createAppPanelOpener,bundledAppTools} from './app-tools.mjs';
 import {startViewerService} from './service.ts';
+import {createThemeReader} from './theme-config.mjs';
 import {resolveInstalledRuntime} from './installed-runtime.mjs';
 const directory=path.dirname(fileURLToPath(import.meta.url));
 const args=process.argv.slice(2);
@@ -18,7 +19,7 @@ const log=value=>{if(value.phase==='unavailable')process.stderr.write('[live-vie
 if(args.includes('app-server')){
  try{
   opener=createAppPanelOpener({serverPath:bundledAppTools(config.resources),nodePath:config.node,env,onStatus:log});
-  service=await startViewerService({javascript:()=>fs.readFile(path.join(directory,'viewer.js'),'utf8'),open:owner=>opener.open(owner)});
+  service=await startViewerService({theme:createThemeReader(),javascript:()=>fs.readFile(path.join(directory,'viewer.js'),'utf8'),open:owner=>opener.open(owner)});
   env.CODEX_LIVE_VIEWER_HOOK_ENDPOINT=service.hookEndpoint;
  }catch(error){process.stderr.write('[live-viewer] '+error.message+'\n');}
 }

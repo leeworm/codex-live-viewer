@@ -1,6 +1,6 @@
 {
   "name": "codex-live-viewer",
-  "version": "0.5.1",
+  "version": "0.5.3",
   "private": true,
   "type": "module",
   "description": "Automatic live code, diff and execution viewer inside Codex for Windows",
@@ -20,23 +20,24 @@
     "verify:ui": "node scripts/verify-ui.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.32.2",
-    "@codemirror/lang-javascript": "6.2.5",
-    "@codemirror/lang-python": "6.2.1",
-    "@codemirror/lang-json": "6.0.2",
     "@codemirror/lang-css": "6.3.1",
     "@codemirror/lang-html": "6.4.12",
-    "@codemirror/legacy-modes": "6.5.4",
+    "@codemirror/lang-javascript": "6.2.5",
+    "@codemirror/lang-json": "6.0.2",
+    "@codemirror/lang-python": "6.2.1",
     "@codemirror/language": "6.12.4",
+    "@codemirror/legacy-modes": "6.5.4",
     "@lezer/common": "1.5.2",
-    "@lezer/highlight": "1.2.4"
+    "@lezer/highlight": "1.2.4",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "smol-toml": "1.9.0"
   },
   "devDependencies": {
     "@types/node": "24.19.0",
+    "electron": "44.3.0",
     "esbuild": "0.25.12",
     "typescript": "7.0.2",
-    "vitest": "5.0.2",
     "vite": "7.3.6",
-    "electron": "44.3.0"
+    "vitest": "5.0.2"
   }
 }

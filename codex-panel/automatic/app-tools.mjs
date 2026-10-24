@@ -14,7 +14,7 @@ export function createAppPanelOpener({serverPath, nodePath=process.execPath, env
       if(!env.CODEX_APP_TOOLS_PIPE_PATH)throw Error('Codex app tool connection is unavailable');
       await fs.access(serverPath);
       transport=new StdioClientTransport({command:nodePath,args:[serverPath],env:{...env},stderr:'pipe'});
-      const candidate=new Client({name:'codex-live-viewer-observer',version:'0.5.1'},{capabilities:{}});
+      const candidate=new Client({name:'codex-live-viewer-observer',version:'0.5.3'},{capabilities:{}});
       let timer;
       try{
         await Promise.race([candidate.connect(transport),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Panel connection timed out')),timeoutMs);})]);
