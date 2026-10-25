@@ -12,3 +12,4 @@ UI-UPDATE.json
 *.pem
 *.key
 .vscode/
+.codex-build-safety/

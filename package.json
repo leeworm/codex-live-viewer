@@ -15,7 +15,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "verify": "npm run typecheck && npm test",
+    "test:config": "node --test maintenance/auto-open-rules.test.cjs",
+    "verify": "npm run typecheck && npm test && npm run test:config",
     "build": "node scripts/build.mjs",
     "verify:ui": "node scripts/verify-ui.mjs"
   },

@@ -1,11 +1,16 @@
-param([switch]$Check,[switch]$Disable)
+param([switch]$Check,[switch]$Disable,[switch]$OpenBrowser)
 $ErrorActionPreference = 'Stop'
 $variableName = 'CODEX_CLI_PATH'
 $bundleRoot = $PSScriptRoot
 $manifest = Get-Content -LiteralPath (Join-Path $bundleRoot 'BUILD.json') -Raw | ConvertFrom-Json
-$installRoot = Join-Path $env:LOCALAPPDATA ('CoS-Live-Viewer\codex\'+$manifest.version)
+$installRoot = $bundleRoot
 $statePath = Join-Path $installRoot 'AUTO-STATE.json'
 $shimPath = Join-Path $installRoot 'codex-live-viewer.exe'
+$userHome = if ($env:USERPROFILE) { $env:USERPROFILE } else { [Environment]::GetFolderPath('UserProfile') }
+$localMarketplaceName = (Get-Content -LiteralPath (Join-Path $bundleRoot 'marketplace.json') -Raw | ConvertFrom-Json).name
+$pluginSelector = 'codex-live-viewer@'+$localMarketplaceName
+$codexPluginRoot = Join-Path $userHome ('.codex\plugins\cache\'+$localMarketplaceName+'\codex-live-viewer\'+$manifest.version)
+$personalMarketplacePath = Join-Path $userHome '.agents\plugins\marketplace.json'
 function Initialize-EnvironmentApi {
  if (-not ('LiveViewerEnvironmentBroadcast' -as [type])) {
   Add-Type -TypeDefinition @'
@@ -37,10 +42,33 @@ function Broadcast-Environment {
  $reply = [UIntPtr]::Zero
  return [LiveViewerEnvironmentBroadcast]::SendMessageTimeout([IntPtr]0xffff,0x1a,[UIntPtr]::Zero,'Environment',2,500,[ref]$reply) -ne [IntPtr]::Zero
 }
+function Get-StockPluginCli {
+ $package = Get-AppxPackage -Name OpenAI.Codex | Sort-Object Version -Descending | Select-Object -First 1
+ if (-not $package) { throw 'Installed Codex package not found.' }
+ $cli = Join-Path $package.InstallLocation 'app\resources\codex.exe'
+ if (-not (Test-Path -LiteralPath $cli -PathType Leaf)) { throw 'Stock Codex CLI not found.' }
+ return $cli
+}
+function Register-PersonalPlugin {
+ $cli = Get-StockPluginCli
+ & $cli plugin marketplace add $installRoot --json | Out-Null
+ if ($LASTEXITCODE -ne 0) { throw 'Local marketplace registration failed. Existing settings were preserved.' }
+ & $cli plugin add $pluginSelector --json | Out-Null
+ if ($LASTEXITCODE -ne 0) { throw 'Native plugin installation failed.' }
+ & (Get-Command node.exe -ErrorAction Stop).Source (Join-Path $installRoot 'configure-transport.cjs') --enable | Out-Null
+ if ($LASTEXITCODE -ne 0) { throw 'Live Viewer transport registration failed.' }
+}
+function Unregister-PersonalPlugin($previousMarketplaceText) {
+ & (Get-Command node.exe -ErrorAction Stop).Source (Join-Path $installRoot 'configure-transport.cjs') --disable | Out-Null
+ if ($LASTEXITCODE -ne 0) { throw 'Live Viewer transport disable failed.' }
+ $cli = Get-StockPluginCli
+ & $cli plugin remove $pluginSelector --json | Out-Null
+ if ($LASTEXITCODE -ne 0) { throw 'Native plugin removal failed.' }
+}
 if ($Check) {
  $current = [Environment]::GetEnvironmentVariable($variableName,'User')
  Initialize-EnvironmentApi
- @{registered=($current -eq $shimPath);freshWindowsEnvironment=([LiveViewerEnvironmentBroadcast]::FreshValue($variableName) -eq $shimPath);override=$current;installRoot=$installRoot;statePresent=(Test-Path -LiteralPath $statePath);appliesTo='new app processes; running app unchanged'} | ConvertTo-Json -Compress
+ @{registered=($current -eq $shimPath);freshWindowsEnvironment=([LiveViewerEnvironmentBroadcast]::FreshValue($variableName) -eq $shimPath);override=$current;installRoot=$installRoot;pluginRoot=$codexPluginRoot;pluginInstalled=(Test-Path -LiteralPath $codexPluginRoot);marketplacePresent=(Test-Path -LiteralPath (Join-Path $installRoot 'marketplace.json'));mode='plugin';statePresent=(Test-Path -LiteralPath $statePath);appliesTo='new app processes; running app unchanged'} | ConvertTo-Json -Compress
  exit 0
 }
 if ($Disable) {
@@ -48,15 +76,19 @@ if ($Disable) {
  $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
  if ($state.shim -ne $shimPath -or [Environment]::GetEnvironmentVariable($variableName,'User') -ne $shimPath) { throw 'Override ownership changed. No setting was changed.' }
  [Environment]::SetEnvironmentVariable($variableName,$state.previousUserValue,'User')
+ if ($state.PSObject.Properties['previousMarketplaceText']) {
+  Unregister-PersonalPlugin $state.previousMarketplaceText
+ }
  $state.enabled=$false
  $state | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $statePath -Encoding UTF8
  $sent = Broadcast-Environment
- @{disabled=$true;restoredPreviousValue=$true;broadcastSent=$sent;appRestarted=$false} | ConvertTo-Json -Compress
+ @{disabled=$true;restoredPreviousValue=$true;pluginRemoved=$true;broadcastSent=$sent;appRestarted=$false} | ConvertTo-Json -Compress
  exit 0
 }
 $previousUserValue = [Environment]::GetEnvironmentVariable($variableName,'User')
 if ($previousUserValue -eq $shimPath -and (Test-Path -LiteralPath $statePath)) {
- @{enabled=$true;alreadyRegistered=$true;installRoot=$installRoot;appRestarted=$false} | ConvertTo-Json -Compress
+ Register-PersonalPlugin
+ @{enabled=$true;alreadyRegistered=$true;mode='plugin';installRoot=$installRoot;pluginRoot=$codexPluginRoot;appRestarted=$false} | ConvertTo-Json -Compress
  exit 0
 }
 if (-not [string]::IsNullOrEmpty($previousUserValue)) {
@@ -96,10 +128,13 @@ Copy-Item -LiteralPath (Join-Path $bundleRoot 'BUILD.json') -Destination (Join-P
 $resolvedText = & (Join-Path $installRoot 'launch.ps1') -ResolveOnly
 $resolved = $resolvedText | ConvertFrom-Json
 $resolved | Add-Member -NotePropertyName autoResolve -NotePropertyValue $true
+$resolved | Add-Member -NotePropertyName mode -NotePropertyValue ($(if ($OpenBrowser) { 'browser' } else { 'plugin' }))
+$resolved | Add-Member -NotePropertyName openBrowser -NotePropertyValue ([bool]$OpenBrowser)
 $resolved | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $installRoot 'runtime-config.json') -Encoding UTF8
 $actualVersion = & $shimPath --version
 if ($LASTEXITCODE -ne 0 -or $actualVersion -notmatch '^codex-cli ') { throw 'Installed connection preflight failed. User setting was not changed.' }
-$state = @{version=$manifest.version;enabled=$false;shim=$shimPath;previousUserValue=$previousUserValue;registeredAt=[DateTime]::UtcNow.ToString('o');appRestarted=$false}
+$previousMarketplaceText = if (Test-Path -LiteralPath $personalMarketplacePath) { Get-Content -LiteralPath $personalMarketplacePath -Raw } else { '' }
+$state = @{version=$manifest.version;enabled=$false;mode=($(if ($OpenBrowser) { 'browser' } else { 'plugin' }));shim=$shimPath;previousUserValue=$previousUserValue;previousMarketplaceText=$previousMarketplaceText;registeredAt=[DateTime]::UtcNow.ToString('o');appRestarted=$false}
 $state | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $statePath -Encoding UTF8
 if ([Environment]::GetEnvironmentVariable($variableName,'User') -ne $previousUserValue) { throw 'User override changed during preflight. No setting was overwritten.' }
 [Environment]::SetEnvironmentVariable($variableName,$shimPath,'User')
@@ -108,7 +143,8 @@ if ([LiveViewerEnvironmentBroadcast]::FreshValue($variableName) -ne $shimPath) {
  [Environment]::SetEnvironmentVariable($variableName,$previousUserValue,'User')
  throw 'Fresh Windows environment did not reflect the setting. Previous value restored.'
 }
+Register-PersonalPlugin
 $state.enabled=$true
 $state | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $statePath -Encoding UTF8
 $sent = Broadcast-Environment
-@{enabled=$true;installRoot=$installRoot;override=[Environment]::GetEnvironmentVariable($variableName,'User');broadcastSent=$sent;freshWindowsEnvironment=$true;appRestarted=$false;cliVersion=[string]$actualVersion} | ConvertTo-Json -Compress
+@{enabled=$true;mode=($(if ($OpenBrowser) { 'browser' } else { 'plugin' }));installRoot=$installRoot;pluginRoot=$codexPluginRoot;marketplace=(Join-Path $installRoot 'marketplace.json');override=[Environment]::GetEnvironmentVariable($variableName,'User');broadcastSent=$sent;freshWindowsEnvironment=$true;appRestarted=$false;cliVersion=[string]$actualVersion} | ConvertTo-Json -Compress

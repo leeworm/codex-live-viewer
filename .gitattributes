@@ -6,3 +6,6 @@
 *.md text eol=lf
 *.ps1 text eol=crlf
 *.cmd text eol=crlf
+plugins/codex-live-viewer/hook-server.cjs linguist-generated=true
+# Generated CodeMirror completion strings contain intentional trailing tabs.
+plugins/codex-live-viewer/viewer.js linguist-generated=true whitespace=-blank-at-eol

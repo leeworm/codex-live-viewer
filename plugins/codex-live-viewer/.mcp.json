@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "codex-live-viewer": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/hook-server.cjs"
+      ]
+    }
+  }
+}

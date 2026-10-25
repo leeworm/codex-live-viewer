@@ -1,0 +1,17 @@
+{
+  "name": "codex-live-viewer",
+  "version": "0.5.4",
+  "description": "Automatic live code view plugin",
+  "interface": {
+    "displayName": "Live Viewer",
+    "shortDescription": "Live code, diff and execution",
+    "longDescription": "Automatically opens for coding work and shows local code, diff, and command execution in the current conversation.",
+    "capabilities": [
+      "Read",
+      "Interactive"
+    ]
+  },
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./mcp.json",
+  "skills": "./skills/"
+}

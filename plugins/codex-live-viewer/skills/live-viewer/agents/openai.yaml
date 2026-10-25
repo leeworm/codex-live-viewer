@@ -1,0 +1,6 @@
+interface:
+  display_name: "Live Viewer"
+  short_description: "Automatically show code changes in Codex"
+  default_prompt: "Use $live-viewer to follow code changes in this conversation."
+policy:
+  allow_implicit_invocation: true
