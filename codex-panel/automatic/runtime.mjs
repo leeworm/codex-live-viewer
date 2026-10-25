@@ -18,9 +18,8 @@ delete env.CODEX_CLI_PATH;env.CODEX_APP_RUNTIME_CLI_PATH=config.cli;
 const log=value=>{if(value.phase==='unavailable')process.stderr.write('[live-viewer] '+value.message+'\n');};
 if(args.includes('app-server')){
  try{
-  const openBrowser=config.openBrowser===true||process.env.CODEX_LIVE_VIEWER_OPEN_BROWSER==='1';
-  if(openBrowser)opener=createAppPanelOpener({serverPath:bundledAppTools(config.resources),nodePath:config.node,env,onStatus:log});
-  service=await startViewerService({theme:createThemeReader(),javascript:()=>fs.readFile(path.join(directory,'viewer.js'),'utf8'),open:async owner=>opener?opener.open(owner):true});
+  opener=createAppPanelOpener({serverPath:bundledAppTools(config.resources),nodePath:config.node,env,onStatus:log});
+  service=await startViewerService({theme:createThemeReader(),javascript:()=>fs.readFile(path.join(directory,'viewer.js'),'utf8'),open:owner=>opener.open(owner)});
   env.CODEX_LIVE_VIEWER_HOOK_ENDPOINT=service.hookEndpoint;
  }catch(error){process.stderr.write('[live-viewer] '+error.message+'\n');}
 }

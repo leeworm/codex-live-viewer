@@ -4,7 +4,7 @@ Automatic code, diff and execution progress inside the Codex desktop app for Win
 
 [한국어](README.ko.md) · [License](LICENSE) · [Attribution](codex-panel/native/reference-NOTICE.txt)
 
-Before changing code, Codex reuses an existing Live Viewer plugin tab or opens one when none is present, then follows that conversation's execution stream.
+When a code tool starts, the viewer follows its execution in the owning chat's built-in browser panel.
 
 ## Features
 
@@ -15,7 +15,6 @@ Before changing code, Codex reuses an existing Live Viewer plugin tab or opens o
 - History browsing with a bottom-center button to return to the latest work.
 - Cascadia Code / D2Coding fallbacks; narrow layouts and colors following the Codex app's appearance settings.
 - Automatic connection from the ordinary Codex icon after one-time setup.
-- Native MCP App panel with automatic invocation during coding work.
 - Installed Codex components resolved again at launch; application binaries stay untouched.
 
 ![Renderer demo using fixed local events](docs/assets/typing-preview.png)
@@ -40,11 +39,7 @@ npm run build
 2. Close Codex normally when your work is saved, then start it using your usual icon.
 3. Ask Codex to write or edit a file. Live Viewer opens automatically in the owning chat.
 
-Keep the build folder in a permanent location. Enable-Auto registers that folder in place as the `codex-live-viewer` marketplace, configures the local MCP connection, and registers `CODEX_CLI_PATH`. It also adds an owned auto-open section to the user's Codex `AGENTS.md`, preserving existing instructions and backing up settings. It never stops the running app.
-
-Run `Disable-Auto.cmd` from the same folder to restore the previous CLI setting, disable the connection, remove the plugin and remove its auto-open instructions. Do not move or delete an enabled installation.
-
-The ready-to-install plugin package is tracked in [`plugins/codex-live-viewer`](plugins/codex-live-viewer), with marketplace files at the repository root. The complete live-stream connection uses the build and Enable-Auto steps above.
+Enable-Auto copies the verified bundle into the current user's AppData and registers `CODEX_CLI_PATH`. It preserves the previous value and rejects unrelated overrides. It never stops the running app. To restore the prior setting, run `Disable-Auto.cmd` from the installed bundle.
 
 Scroll upward to pause automatic scrolling. Use the bottom-center return button or scroll to the bottom to follow the latest work again.
 
@@ -63,15 +58,13 @@ npm run verify
 npm run verify:ui
 ```
 
-`verify` checks types, viewer tests and installation-rule tests. `verify:ui` checks rendering and interactions using local events, with results saved to `artifacts/`.
+`verify` checks types and unit tests. `verify:ui` checks rendering and interactions using local events, with results saved to `artifacts/`.
 
-Production dependency license texts are collected from the lockfile's installed packages during build and included with the bundle. Viewer reads require the conversation identity supplied by the host.
+Production dependency license texts are collected from the lockfile's installed packages during build and included with the bundle. The optional generated hook plugin validates real executor ownership metadata and does not change tool input or permissions. Automatic display also works without installing that hook plugin.
 
 ## How it works and limitations
 
-A small Windows launcher delegates to the installed stock CLI. A Node observer forwards the existing app-server stream and projects bounded, redacted tool events by host, thread, turn and call identity. The native MCP App panel reads snapshots through its owning conversation's MCP connection.
-
-Automatic opening uses the coding skill, MCP instructions and managed Codex user instructions to check the current conversation's MCP App tabs first. It calls `live_viewer` only when none is open, avoiding repeated openings across coding turns. Ordinary questions do not open it. Workers without UI tools continue coding without opening a panel. See [automatic invocation](docs/auto-open.md).
+A small Windows launcher delegates to the installed stock CLI. A Node observer forwards the existing app-server stream and projects bounded, redacted tool events by host, thread, turn and call identity. The bundled app tool opens a per-chat localhost capability URL, and SSE updates its renderer.
 
 The connection supports local execution on this Windows host. Remote and service-only execution are outside the verified scope. Future app versions must retain the CLI override and bundled panel tool contracts; compatibility is not unconditional.
 

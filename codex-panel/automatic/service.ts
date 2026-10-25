@@ -6,19 +6,14 @@ import type {AppThemeSettings} from '../../src/shared/app-theme.js';
 const id = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(value);
 const same = (a: string, b: string) => {const left=Buffer.from(a),right=Buffer.from(b);return left.length===right.length && timingSafeEqual(left,right);};
 export const viewerDocument = '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live Viewer</title><style>html,body{margin:0;height:100%;color-scheme:light dark;background:var(--viewer-background,light-dark(#fff,#171717));font:12px system-ui}#viewer{height:100%;display:flex}#connection{position:fixed;bottom:4px;right:8px;z-index:2;background:var(--viewer-background,light-dark(#fff,#171717));color:#888}</style><div id="viewer"></div><div id="connection">연결 중</div><script src="/viewer.js"></script></html>';
-export function buildPluginViewerDocument(javascript: string): string {
-  const inlineJs = javascript.replace(/<\/script/gi, '<\\/script');
-  return '<!doctype html><html lang="ko" data-mcp-app="true"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live Viewer</title><style>html,body{margin:0;height:100%;color-scheme:light dark;background:var(--viewer-background,light-dark(#fff,#171717));font:12px system-ui}#viewer{height:100%;display:flex}#connection{position:fixed;bottom:4px;right:8px;z-index:2;background:var(--viewer-background,light-dark(#fff,#171717));color:#888}</style><div id="viewer" data-theme-sync="mcp-app"></div><div id="connection" hidden>연결 중</div><script>' + inlineJs + '</script></html>';
-}
 type Entry = {key:string;path:string;feed:NativeCodeFeed;clients:Set<http.ServerResponse>;touched:number};
-/** Read-only loopback viewer and plugin state bridge. Every thread has its own non-enumerable capability. */
-export async function startViewerService(options: {javascript:string|(()=>Promise<string>); open?:(owner:{threadId:string;url:string;turnId:string|null})=>Promise<boolean>; maxThreads?:number;theme?:()=>Promise<AppThemeSettings>}) {
+/** Read-only loopback viewer. Every thread has its own non-enumerable capability. */
+export async function startViewerService(options: {javascript:string|(()=>Promise<string>); open:(owner:{threadId:string;url:string;turnId:string|null})=>Promise<boolean>; maxThreads?:number;theme?:()=>Promise<AppThemeSettings>}) {
   const entries = new Map<string,Entry>(), paths = new Map<string,Entry>();
   const hookPath='/hook/'+randomBytes(32).toString('hex');
   const hooks:{threadId:string;turnId:string;callId:string;phase:string}[]=[];
   const connections = new Set<import('node:net').Socket>();
   const count = Math.max(1,Math.min(options.maxThreads??32,64));
-  const openPanel = options.open ?? (async () => true);
   let port = 0;
   const server = http.createServer(async (req,res) => {
     const host = req.headers.host;
@@ -36,18 +31,6 @@ export async function startViewerService(options: {javascript:string|(()=>Promis
       }catch{res.writeHead(400);res.end();return;}
     }
     if(req.method!=='GET'){res.writeHead(405);res.end();return;}
-    if(url.pathname===hookPath){
-      const requestedThread=url.searchParams.get('threadId')??'';
-      let target=requestedThread?entries.get(requestedThread):undefined;
-      if(!target&&!requestedThread&&entries.size>0){
-        target=[...entries.values()].sort((a,b)=>b.touched-a.touched)[0];
-      }
-      if(target)target.touched=Date.now();
-      const theme=await options.theme?.()??{mode:'system'};
-      res.setHeader('Content-Type','application/json; charset=utf-8');
-      res.end(JSON.stringify({threadId:target?.feed.snapshot.threadId??requestedThread,snapshot:target?.feed.snapshot??null,theme,threads:[...entries.keys()]}));
-      return;
-    }
     if(url.pathname==='/theme'){res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(await options.theme?.()??{mode:'system'}));return;}
     if(url.pathname==='/viewer.js'){
       try{const javascript=typeof options.javascript==='function'?await options.javascript():options.javascript;res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(javascript);}
@@ -79,7 +62,7 @@ export async function startViewerService(options: {javascript:string|(()=>Promis
       entries.delete(candidate[0]);paths.delete(candidate[1].path);
     }
     const key=randomBytes(32).toString('base64url'),viewPath='/v/'+randomBytes(16).toString('hex');
-    const feed=new NativeCodeFeed({hostId:'local',threadId}, snapshot=>(entries.get(threadId)?.clients.size??0)>0 ? true : openPanel({threadId,url:'http://127.0.0.1:'+port+viewPath+'#'+key,turnId:snapshot.turnId}));
+    const feed=new NativeCodeFeed({hostId:'local',threadId}, snapshot=>(entries.get(threadId)?.clients.size??0)>0 ? true : options.open({threadId,url:'http://127.0.0.1:'+port+viewPath+'#'+key,turnId:snapshot.turnId}));
     entry={key,path:viewPath,feed,clients:new Set(),touched:Date.now()};
     entries.set(threadId,entry);paths.set(viewPath,entry);
     const current=entry;
